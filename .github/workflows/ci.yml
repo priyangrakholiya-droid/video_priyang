@@ -50,7 +50,26 @@ jobs:
 
       - name: End-to-end smoke test
         if: runner.os == 'Linux'
+        env:
+          PYTHONUNBUFFERED: "1"
         run: bash scripts/run_sample_pipeline.sh
+
+      # So a failure can be diagnosed from the artifact alone, without
+      # anyone having to read the raw job log.
+      - name: Keep the smoke test output when it fails
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            sample/result.json
+            sample/plan.txt
+            projects/sample-run/project.json
+            projects/sample-run/edit.json
+            projects/sample-run/**/*.json
+            projects/sample-run/**/*.csv
+          if-no-files-found: ignore
+          retention-days: 7
 
   lint:
     name: packaging

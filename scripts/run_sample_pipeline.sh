@@ -9,6 +9,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONPATH="${PYTHONPATH:-src}"
 
+# Say exactly which command died. Without this, a CI failure is a bare
+# non-zero exit and you are left guessing which of the six phases broke.
+trap 'status=$?; echo "" >&2; echo "FAILED at line ${LINENO}: ${BASH_COMMAND}" >&2; echo "       exit status ${status}" >&2; echo "       python: $(python -V 2>&1), ffmpeg: $(ffmpeg -version 2>/dev/null | head -1)" >&2' ERR
+
+echo "python: $(python -V 2>&1)"
+echo "ffmpeg: $(ffmpeg -version 2>/dev/null | head -1)"
+
 OUT="sample"
 PROJECT="sample-run"
 VE="python -m video_editor"
@@ -33,17 +40,32 @@ $VE run "$OUT/footage" \
 
 python - "$OUT/result.json" <<'PY'
 import json, sys
-result = json.load(open(sys.argv[1]))
+raw = open(sys.argv[1], encoding="utf-8").read()
+try:
+    result = json.loads(raw)
+except json.JSONDecodeError as exc:
+    # Print what we actually got: this is the only way to diagnose a CI
+    # failure from the log alone.
+    sys.exit(f"FAILED: stdout was not JSON ({exc})\n--- stdout ---\n{raw[:4000]}")
 if "error" in result:
-    sys.exit(f"FAILED: the pipeline reported {result['error']}")
+    sys.exit(
+        f"FAILED: the pipeline reported {result.get('error_type')}: "
+        f"{result['error']}\n--- full document ---\n{raw[:4000]}"
+    )
 for step in ("select", "arrange", "music", "emotions", "render"):
     if step not in result["steps_done"]:
         sys.exit(f"FAILED: step {step} did not complete")
 if not result.get("rendered"):
     sys.exit("FAILED: nothing was rendered")
+music = result.get("music")
+if not music:
+    sys.exit(
+        "FAILED: a song was passed, so the music step should have run and "
+        f"recorded a tempo\n--- full document ---\n{raw[:4000]}"
+    )
 print(f"  clips      {result['clips']}")
 print(f"  runtime    {result['render_duration']}s (target {result['target_duration']}s)")
-print(f"  tempo      {result['music']['bpm']} BPM, snapped to {result['music']['snap']}")
+print(f"  tempo      {music['bpm']} BPM, snapped to {music['snap']}")
 print(f"  emotions   {result['by_emotion']}")
 print(f"  rendered   {result['rendered']}")
 PY
@@ -82,7 +104,11 @@ find "projects/$PROJECT" -type f \( -name '*.json' -o -name '*.csv' -o -name '*.
 
 echo "=== 6. state afterwards"
 $VE status "$PROJECT"
-$VE plan "$PROJECT" | head -20
+# Write first, then trim. Piping straight into `head` closes the pipe early,
+# and a Python producer killed by SIGPIPE exits non-zero on Linux, which
+# `set -o pipefail` turns into a failed build for no real reason.
+$VE plan "$PROJECT" > "$OUT/plan.txt"
+sed -n '1,20p' "$OUT/plan.txt"
 
 echo
 echo "PASSED: $FINAL (${DURATION}s)"
