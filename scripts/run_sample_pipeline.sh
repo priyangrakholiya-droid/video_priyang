@@ -29,6 +29,11 @@ bash scripts/make_sample_footage.sh "$OUT"
 rm -rf "projects/$PROJECT"
 
 echo "=== 2. run all five steps, unattended"
+# Do not let `set -e` abort here: the pipeline writes its error document to
+# stdout, which is this file. Aborting on the spot would throw away the one
+# thing that explains the failure. Capture the status, show the document,
+# then fail.
+set +e
 $VE run "$OUT/footage" \
   --name "$PROJECT" \
   --preset marriage \
@@ -37,6 +42,13 @@ $VE run "$OUT/footage" \
   --snap bar \
   --audio mix \
   --json > "$OUT/result.json"
+run_status=$?
+set -e
+if [ "$run_status" -ne 0 ]; then
+  echo "the run exited ${run_status}; what it wrote to stdout:" >&2
+  cat "$OUT/result.json" >&2 || true
+  exit "$run_status"
+fi
 
 python - "$OUT/result.json" <<'PY'
 import json, sys

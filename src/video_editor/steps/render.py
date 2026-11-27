@@ -99,29 +99,40 @@ def _normalise(
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
         f"setsar=1,fps={fps},format=yuv420p"
     )
+
+    has_audio = False
+    try:
+        has_audio = probe(source).has_audio
+    except Exception:  # noqa: BLE001 - a bad source is reported by ffmpeg below
+        has_audio = False
+
     cmd = [
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
         "-ss", f"{clip.source_in:.3f}",
         "-i", str(source),
-        # A silent track, used only if the clip itself has none.
-        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
-        "-t", f"{clip.render_duration:.3f}",
-        "-filter_complex",
-        f"[0:v]{video_filter}[v]",
-        "-map", "[v]",
     ]
-    has_audio = True
-    try:
-        has_audio = probe(source).has_audio
-    except Exception:  # noqa: BLE001
-        has_audio = False
-    cmd += ["-map", "0:a:0?" if has_audio else "1:a:0"]
+    # Only add the silent track when the clip really has no audio of its own.
+    # Declaring an unused, infinite lavfi input is the kind of thing ffmpeg
+    # tolerates in one release and rejects in the next, so do not declare one
+    # we are not going to map.
+    if not has_audio:
+        cmd += [
+            "-f", "lavfi",
+            "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        ]
     cmd += [
+        "-t", f"{clip.render_duration:.3f}",
+        "-filter_complex", f"[0:v]{video_filter}[v]",
+        "-map", "[v]",
+        "-map", "0:a:0" if has_audio else "1:a:0",
         "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
-        "-shortest", "-video_track_timescale", "90000",
-        str(destination),
     ]
+    if not has_audio:
+        # Bound the infinite silence. With real audio, -t already bounds the
+        # output and -shortest would only risk truncating it.
+        cmd.append("-shortest")
+    cmd += ["-video_track_timescale", "90000", str(destination)]
     _run(cmd, f"normalising {clip.id}")
 
 
