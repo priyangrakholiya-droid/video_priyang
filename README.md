@@ -507,7 +507,7 @@ including why there is no librosa, numpy or OpenCV.
 
 ## Tests
 
-109 tests, standard library only, no network, **no media checked in** — the
+124 tests, standard library only, no network, **no media checked in** — the
 tests that need audio or video build it with ffmpeg and clean up after
 themselves.
 

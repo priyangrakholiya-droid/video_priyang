@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "video-editor"
-version = "0.2.0"
+version = "0.2.1"
 description = "A five-step editor for event films - marriage, engagement, party, baby shower and more"
 readme = "README.md"
 requires-python = ">=3.10"

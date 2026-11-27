@@ -3,7 +3,7 @@
   "id": "priyang/video-editor",
   "name": "video_editor",
   "title": "Event video editor",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "MIT",
   "description": "A five-step editor for event films - marriage, engagement, party, baby shower and more. Finds the moments, orders them, cuts them to the beat of a song, reads the mood of each one, and renders the film. Stores references, never copies: only the finished film is written.",
   "entry_point": "video_editor.cli:main",

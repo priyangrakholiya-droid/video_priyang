@@ -5,6 +5,64 @@ All notable changes to this project. Dates are ISO. Versions follow
 
 ---
 
+## 0.2.1 — 2026-11-27
+
+### Fixed — rendering on ffmpeg 8
+
+CI caught a real incompatibility: the render step failed on ffmpeg 8.0.1 while
+working on 7.x. Two causes, both in `steps/render.py`.
+
+**The concat list used relative paths.** A relative entry inside a concat list
+is resolved against the directory holding *the list*, not the working
+directory, so a project-relative path produced
+
+```
+projects/x/05_output/ve_render_abc/projects/x/05_output/ve_render_abc/0001_c001.mp4
+```
+
+ffmpeg 7 happened to resolve against the working directory and let it pass;
+ffmpeg 8 enforces the documented behaviour and failed with
+`Impossible to open`. The parts sit beside the list, so bare file names are now
+written, which is correct on every version.
+
+**An audio input was declared and never mapped.** `_normalise` always added
+`-f lavfi -i anullsrc=...` as a fallback for silent clips — including for clips
+that have their own audio, where that infinite input went unused. Now it is
+added only when the clip really has no audio:
+
+| Clip | Inputs | Audio map | `-shortest` |
+|---|---|---|---|
+| has audio | 1 | `0:a:0` | no — `-t` already bounds it |
+| silent | 2 | `1:a:0` | yes, to bound the silence |
+
+CI is deliberately **not** pinned to an ffmpeg version. It found this; pinning
+would only hide the next one.
+
+### Added — the render step has tests now
+
+`tests/test_render.py` captures the argument lists the step would hand to
+ffmpeg and asserts their shape, without encoding anything: no entry in a concat
+list may contain a path separator, every declared input must be mapped, and
+`-shortest` appears only when there is infinite silence to bound. That is the
+class of mistake that was invisible to the old suite — 124 tests, up from 109.
+
+### Fixed — the smoke test no longer destroys the evidence
+
+The pipeline writes its error document to stdout, which the script redirects to
+`result.json`, so `set -e` aborted before anything could print it, leaving a
+bare `exit code 1`. It now captures the status, shows the document, then fails.
+
+An `ERR` trap reports the failing line, command, exit status and the
+python/ffmpeg versions; CI folds the log tail into a workflow annotation (those
+are readable through the public API, unlike job logs and artifacts) and uploads
+`smoke.log` with the project definitions on failure.
+
+A latent hazard also removed: `plan | head -20` ran under `set -o pipefail`,
+where a Python producer killed by SIGPIPE exits non-zero on Linux. It writes to
+a file and trims the file instead.
+
+---
+
 ## 0.2.0 — 2026-11-27
 
 A restructure around one decision: **a clip is a reference, not a copy.** Plus

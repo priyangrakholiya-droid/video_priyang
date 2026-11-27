@@ -137,10 +137,19 @@ def _normalise(
 
 
 def _concat(parts: list[Path], destination: Path, work: Path) -> None:
+    """Join the normalised parts with the concat demuxer."""
     listing = work / "concat.txt"
-    listing.write_text(
-        "\n".join(f"file '{p.as_posix()}'" for p in parts) + "\n", encoding="utf-8"
-    )
+    # A relative path inside a concat list is resolved against the directory
+    # the LIST lives in - not the working directory. Writing the project-
+    # relative path therefore produced <work>/<work>/0001_c001.mp4 and failed
+    # on ffmpeg 8, which enforces that; ffmpeg 7 happened to resolve against
+    # the working directory instead. The parts sit beside the list, so a bare
+    # file name is correct everywhere and needs no quoting of long paths.
+    entries: list[str] = []
+    for part in parts:
+        name = part.name if part.parent == work else part.resolve().as_posix()
+        entries.append(f"file '{name}'")
+    listing.write_text("\n".join(entries) + "\n", encoding="utf-8")
     _run(
         [
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
