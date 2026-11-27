@@ -3,7 +3,6 @@ import unittest
 from video_editor.probe import hash_distance
 from video_editor.project import Clip
 from video_editor.steps.arrange import (
-    EMOTION_ARC,
     arrange_by_emotion,
     chain_by_match,
     join_cost,
@@ -86,23 +85,43 @@ class ChainByMatch(unittest.TestCase):
         self.assertLessEqual(sum(costs), sum(original))
 
 
+class FakeProject:
+    """Just enough project for arrange_by_emotion: it only needs the arc."""
+
+    def __init__(self, arc):
+        self.emotion_arc = list(arc)
+
+
 class ArrangeByEmotion(unittest.TestCase):
+    ARC = ["calm", "happy", "fun", "romantic", "ritual", "emotional"]
+
     def test_follows_the_arc(self):
         clips = [
             make_clip("sad", 1, 2, emotion="emotional"),
             make_clip("quiet", 3, 4, emotion="calm"),
             make_clip("party", 5, 6, emotion="fun"),
         ]
-        order = [c.emotion for c in arrange_by_emotion(clips)]
+        order = [c.emotion for c in arrange_by_emotion(FakeProject(self.ARC), clips)]
         self.assertEqual(order, ["calm", "fun", "emotional"])
-        self.assertLess(EMOTION_ARC.index("calm"), EMOTION_ARC.index("emotional"))
+
+    def test_a_different_preset_gives_a_different_order(self):
+        # The arc is preset data, so a preset that ends on fun must order
+        # these the other way round.
+        clips = [
+            make_clip("party", 5, 6, emotion="fun"),
+            make_clip("sad", 1, 2, emotion="emotional"),
+        ]
+        arc = ["calm", "emotional", "fun"]
+        order = [c.emotion for c in arrange_by_emotion(FakeProject(arc), clips)]
+        self.assertEqual(order, ["emotional", "fun"])
 
     def test_unscored_clips_go_last(self):
         clips = [
             make_clip("none", 1, 2),
             make_clip("happy", 3, 4, emotion="happy"),
         ]
-        self.assertEqual([c.id for c in arrange_by_emotion(clips)], ["happy", "none"])
+        chain = arrange_by_emotion(FakeProject(self.ARC), clips)
+        self.assertEqual([c.id for c in chain], ["happy", "none"])
 
 
 if __name__ == "__main__":

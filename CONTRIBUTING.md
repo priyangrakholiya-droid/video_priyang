@@ -13,8 +13,10 @@ Pull requests welcome. The project has two rules that shape everything else:
 ## Getting set up
 
 ```bash
-git clone https://github.com/<you>/video_editor.git
-cd video_editor
+git clone https://github.com/priyangrakholiya-droid/video_priyang.git
+cd video_priyang
+export PYTHONPATH=src
+python -m video_editor doctor
 python -m unittest discover -s tests -t . -v
 ```
 
@@ -24,7 +26,7 @@ themselves and the rest still run.
 ## Trying a change end to end
 
 ```bash
-bash tools/run_sample_pipeline.sh
+bash scripts/run_sample_pipeline.sh
 ```
 
 That builds synthetic footage and a click track with ffmpeg, runs all five
@@ -45,23 +47,24 @@ a PR — it catches the integration mistakes that unit tests miss.
 ## Layout
 
 ```
-video_editor/
-  cli.py          argparse, error handling, exit codes
-  project.py      the project folder and project.json
+src/video_editor/
+  cli.py          argparse, --json, error handling, exit codes
+  project.py      the project folder and project.json (schema 2)
+  presets.py      event types, loaded from config/presets/*.json
+  detect.py       automatic moment finding
   probe.py        ffmpeg/ffprobe wrappers, cutting, frame hashing
   beats.py        tempo and beat-grid detection
   emotion.py      mood scoring, both backends
   timecode.py     parsing and formatting timestamps
-  ui.py           prompts, tables, progress
+  ui.py           prompts, tables, progress, quiet mode
   steps/
-    select.py     step 1
-    arrange.py    step 2
-    music.py      step 3
-    emotions.py   step 4
+    select.py     step 1       arrange.py   step 2
+    music.py      step 3       emotions.py  step 4
     render.py     step 5
-tests/
-tools/
-docs/
+config/presets/   one JSON file per kind of event
+tests/  scripts/  docs/  .github/workflows/
+CLAUDE.md         the agent brief
+videoeditor.json  machine-readable manifest
 ```
 
 A step module owns one folder in the project and one entry in `steps_done`. It
@@ -77,9 +80,17 @@ shape: it is what lets a user stop after any step and come back tomorrow.
   `"invalid input"`.
 - Never crash on a user typo. Re-ask the question.
 
+## Adding an event type
+
+Do not write code. Add `config/presets/<name>.json` and add it to the table in
+the README. `tests/test_presets.py` validates every shipped preset
+automatically, so a malformed one fails CI.
+
 ## Things worth doing
 
 - Crossfades and transitions between clips in the render step.
+- Face/speech presence as a third detector signal, so a loud shot of the
+  catering van scores below a loud shot of the vows.
 - Tempo-drift tracking for live recordings, instead of one rigid grid.
 - Reading faces without a 500 MB install — a small ONNX expression model.
 - A `--proxy` mode: cut at 480p for speed, re-render the final at full size.

@@ -1,0 +1,173 @@
+{
+  "name": "marriage",
+  "title": "Marriage / wedding film",
+  "description": "A full wedding, ceremony order from mehndi through to the reception.",
+  "target_minutes": 6.0,
+  "segments": [
+    {
+      "id": "mehndi",
+      "title": "Mehndi",
+      "mood": "fun",
+      "keywords": [
+        "mehndi",
+        "henna"
+      ],
+      "required": false
+    },
+    {
+      "id": "haldi",
+      "title": "Haldi",
+      "mood": "fun",
+      "keywords": [
+        "haldi",
+        "turmeric"
+      ],
+      "required": false
+    },
+    {
+      "id": "baraat",
+      "title": "Baraat",
+      "mood": "fun",
+      "keywords": [
+        "baraat",
+        "dhol",
+        "procession"
+      ],
+      "required": false
+    },
+    {
+      "id": "welcome",
+      "title": "Welcome",
+      "mood": "happy",
+      "keywords": [
+        "welcome",
+        "swagat",
+        "arrival"
+      ],
+      "required": false
+    },
+    {
+      "id": "varmala",
+      "title": "Varmala / jaimala",
+      "mood": "romantic",
+      "keywords": [
+        "varmala",
+        "jaimala",
+        "garland"
+      ],
+      "required": true
+    },
+    {
+      "id": "pheras",
+      "title": "Pheras",
+      "mood": "ritual",
+      "keywords": [
+        "phera",
+        "mandap",
+        "vows",
+        "saat"
+      ],
+      "required": true
+    },
+    {
+      "id": "rituals",
+      "title": "Other rituals",
+      "mood": "ritual",
+      "keywords": [
+        "kanyadaan",
+        "sindoor",
+        "mangalsutra"
+      ],
+      "required": false
+    },
+    {
+      "id": "couple_portraits",
+      "title": "Couple portraits",
+      "mood": "romantic",
+      "keywords": [
+        "couple",
+        "portrait"
+      ],
+      "required": false
+    },
+    {
+      "id": "family",
+      "title": "Family",
+      "mood": "happy",
+      "keywords": [
+        "family",
+        "parents",
+        "group"
+      ],
+      "required": false
+    },
+    {
+      "id": "vidaai",
+      "title": "Vidaai",
+      "mood": "emotional",
+      "keywords": [
+        "vidaai",
+        "farewell",
+        "goodbye"
+      ],
+      "required": true
+    },
+    {
+      "id": "reception",
+      "title": "Reception",
+      "mood": "happy",
+      "keywords": [
+        "reception",
+        "stage",
+        "speech"
+      ],
+      "required": false
+    },
+    {
+      "id": "dance",
+      "title": "Dance",
+      "mood": "fun",
+      "keywords": [
+        "dance",
+        "sangeet",
+        "floor"
+      ],
+      "required": false
+    },
+    {
+      "id": "candid",
+      "title": "Candid",
+      "mood": "calm",
+      "keywords": [
+        "candid",
+        "detail",
+        "decor"
+      ],
+      "required": false
+    }
+  ],
+  "emotion_arc": [
+    "calm",
+    "happy",
+    "fun",
+    "romantic",
+    "ritual",
+    "emotional"
+  ],
+  "pacing": {
+    "min_clip_seconds": 2.0,
+    "max_clip_seconds": 14.0,
+    "snap": "bar"
+  },
+  "audio": {
+    "mode": "mix",
+    "music_volume": 0.9,
+    "original_volume": 0.25
+  },
+  "autodetect": {
+    "scene_threshold": 0.32,
+    "min_gap_seconds": 5.0,
+    "prefer_loud": true
+  },
+  "schema": 1
+}

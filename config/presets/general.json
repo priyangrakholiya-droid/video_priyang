@@ -1,0 +1,86 @@
+{
+  "name": "general",
+  "title": "General purpose",
+  "description": "No event assumptions. Use this for anything the other presets do not cover.",
+  "target_minutes": 5.0,
+  "segments": [
+    {
+      "id": "opening",
+      "title": "Opening",
+      "mood": "calm",
+      "keywords": [
+        "opening",
+        "intro",
+        "start"
+      ],
+      "required": false
+    },
+    {
+      "id": "main",
+      "title": "Main action",
+      "mood": "happy",
+      "keywords": [
+        "main",
+        "action"
+      ],
+      "required": false
+    },
+    {
+      "id": "people",
+      "title": "People",
+      "mood": "happy",
+      "keywords": [
+        "people",
+        "face",
+        "group"
+      ],
+      "required": false
+    },
+    {
+      "id": "detail",
+      "title": "Details",
+      "mood": "calm",
+      "keywords": [
+        "detail",
+        "close",
+        "object"
+      ],
+      "required": false
+    },
+    {
+      "id": "closing",
+      "title": "Closing",
+      "mood": "emotional",
+      "keywords": [
+        "closing",
+        "end",
+        "outro"
+      ],
+      "required": false
+    }
+  ],
+  "emotion_arc": [
+    "calm",
+    "happy",
+    "fun",
+    "romantic",
+    "ritual",
+    "emotional"
+  ],
+  "pacing": {
+    "min_clip_seconds": 2.0,
+    "max_clip_seconds": 12.0,
+    "snap": "bar"
+  },
+  "audio": {
+    "mode": "mix",
+    "music_volume": 0.9,
+    "original_volume": 0.25
+  },
+  "autodetect": {
+    "scene_threshold": 0.3,
+    "min_gap_seconds": 4.0,
+    "prefer_loud": true
+  },
+  "schema": 1
+}

@@ -1,0 +1,116 @@
+{
+  "name": "birthday",
+  "title": "Birthday",
+  "description": "Built around the cake and the candles, with the guests and the mess either side.",
+  "target_minutes": 3.0,
+  "segments": [
+    {
+      "id": "decor",
+      "title": "Decor",
+      "mood": "calm",
+      "keywords": [
+        "decor",
+        "balloon",
+        "banner"
+      ],
+      "required": false
+    },
+    {
+      "id": "arrivals",
+      "title": "Arrivals",
+      "mood": "happy",
+      "keywords": [
+        "arrival",
+        "guests"
+      ],
+      "required": false
+    },
+    {
+      "id": "cake_cutting",
+      "title": "Cake cutting",
+      "mood": "happy",
+      "keywords": [
+        "cake",
+        "candle",
+        "blow",
+        "cut"
+      ],
+      "required": true
+    },
+    {
+      "id": "song",
+      "title": "Happy birthday song",
+      "mood": "fun",
+      "keywords": [
+        "song",
+        "sing",
+        "clap"
+      ],
+      "required": false
+    },
+    {
+      "id": "gifts",
+      "title": "Gifts",
+      "mood": "happy",
+      "keywords": [
+        "gift",
+        "present"
+      ],
+      "required": false
+    },
+    {
+      "id": "games",
+      "title": "Games",
+      "mood": "fun",
+      "keywords": [
+        "game",
+        "play",
+        "activity"
+      ],
+      "required": false
+    },
+    {
+      "id": "family",
+      "title": "Family and friends",
+      "mood": "happy",
+      "keywords": [
+        "family",
+        "friends",
+        "group"
+      ],
+      "required": false
+    },
+    {
+      "id": "candid",
+      "title": "Candid",
+      "mood": "calm",
+      "keywords": [
+        "candid",
+        "detail"
+      ],
+      "required": false
+    }
+  ],
+  "emotion_arc": [
+    "calm",
+    "happy",
+    "fun",
+    "emotional"
+  ],
+  "pacing": {
+    "min_clip_seconds": 1.5,
+    "max_clip_seconds": 8.0,
+    "snap": "half-bar"
+  },
+  "audio": {
+    "mode": "mix",
+    "music_volume": 0.9,
+    "original_volume": 0.3
+  },
+  "autodetect": {
+    "scene_threshold": 0.3,
+    "min_gap_seconds": 3.0,
+    "prefer_loud": true
+  },
+  "schema": 1
+}

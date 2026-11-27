@@ -52,11 +52,13 @@ def _target_format(project: Project, clips: list[Clip], size: str | None, fps: f
 
     rates: list[float] = []
     sizes: dict[tuple[int, int], int] = {}
+    seen: set[str] = set()
     for clip in clips:
-        path = project.root / clip.file if clip.file else None
-        probe_target = path if path and path.is_file() else Path(clip.source)
+        if clip.source in seen:
+            continue  # one probe per source file, not per clip
+        seen.add(clip.source)
         try:
-            info = probe(probe_target)
+            info = probe(Path(clip.source))
         except Exception:  # noqa: BLE001 - a missing source is reported later
             continue
         if info.fps > 0:
@@ -215,7 +217,7 @@ def _plan(project: Project, clips: list[Clip], width: int, height: int, fps: flo
             ])
         )
         timeline += clip.render_duration
-    destination = project.dir("final") / "render_plan.csv"
+    destination = project.dir("output") / "render_plan.csv"
     destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return destination
 
@@ -223,24 +225,32 @@ def _plan(project: Project, clips: list[Clip], width: int, height: int, fps: flo
 def run(
     project_path: str | Path,
     *,
-    audio: str = "music",
+    audio: str | None = None,
     size: str | None = None,
     fps: float | None = None,
     crf: int = 19,
     preset: str = "veryfast",
-    music_volume: float = 0.9,
-    original_volume: float = 0.25,
+    music_volume: float | None = None,
+    original_volume: float | None = None,
     fade: float = 1.5,
     align_music: bool = True,
     keep_temp: bool = False,
     dry_run: bool = False,
+    assume_yes: bool = False,
+    presets_dir: str | None = None,
 ) -> Path | None:
     """Run step 5. Returns the path of the finished file."""
     require_tools()
-    project = Project.load(project_path)
+    project = Project.load(project_path, presets_dir)
     clips = [c for c in project.ordered_clips() if c.render_duration > 0.04]
     if not clips:
         raise RenderError("nothing to render. Run the select step first.")
+    # Unset options fall back to the preset's own mix for this kind of event.
+    audio = audio or project.setting("audio", "mode", "mix")
+    if music_volume is None:
+        music_volume = float(project.setting("audio", "music_volume", 0.9))
+    if original_volume is None:
+        original_volume = float(project.setting("audio", "original_volume", 0.25))
     if audio not in AUDIO_MODES:
         raise RenderError(f"--audio wants one of: {', '.join(AUDIO_MODES)}")
 
@@ -289,11 +299,15 @@ def run(
     if dry_run:
         ui.note("--dry-run: stopping before encoding")
         return None
-    if ui.interactive() and not ui.confirm(f"Render {format_duration(total)} now?", True):
+    if (
+        ui.interactive()
+        and not assume_yes
+        and not ui.confirm(f"Render {format_duration(total)} now?", True)
+    ):
         ui.warn("render cancelled")
         return None
 
-    final_dir = project.dir("final")
+    final_dir = project.dir("output")
     work = Path(
         tempfile.mkdtemp(prefix="ve_render_", dir=str(final_dir))
     )
@@ -341,7 +355,7 @@ def run(
             shutil.rmtree(work, ignore_errors=True)
 
     info = probe(destination)
-    project.data["final"] = {
+    project.data["output"] = {
         "file": str(destination.relative_to(project.root)).replace("\\", "/"),
         "duration": round(info.duration, 3),
         "size": info.resolution,

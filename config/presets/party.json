@@ -1,0 +1,120 @@
+{
+  "name": "party",
+  "title": "Party / celebration",
+  "description": "Fast, music-led cutting for a party: arrivals, dancing, games, the crowd.",
+  "target_minutes": 3.0,
+  "segments": [
+    {
+      "id": "setup",
+      "title": "Setup and decor",
+      "mood": "calm",
+      "keywords": [
+        "decor",
+        "setup",
+        "venue"
+      ],
+      "required": false
+    },
+    {
+      "id": "arrivals",
+      "title": "Arrivals",
+      "mood": "happy",
+      "keywords": [
+        "arrival",
+        "guests",
+        "entry"
+      ],
+      "required": false
+    },
+    {
+      "id": "toast",
+      "title": "Toast",
+      "mood": "happy",
+      "keywords": [
+        "toast",
+        "speech",
+        "cheers"
+      ],
+      "required": false
+    },
+    {
+      "id": "food",
+      "title": "Food and drinks",
+      "mood": "calm",
+      "keywords": [
+        "food",
+        "cake",
+        "drinks",
+        "buffet"
+      ],
+      "required": false
+    },
+    {
+      "id": "games",
+      "title": "Games",
+      "mood": "fun",
+      "keywords": [
+        "game",
+        "activity",
+        "contest"
+      ],
+      "required": false
+    },
+    {
+      "id": "dance",
+      "title": "Dance floor",
+      "mood": "fun",
+      "keywords": [
+        "dance",
+        "dj",
+        "floor",
+        "music"
+      ],
+      "required": true
+    },
+    {
+      "id": "crowd",
+      "title": "Crowd and candids",
+      "mood": "fun",
+      "keywords": [
+        "crowd",
+        "candid",
+        "laugh"
+      ],
+      "required": false
+    },
+    {
+      "id": "goodbyes",
+      "title": "Goodbyes",
+      "mood": "emotional",
+      "keywords": [
+        "goodbye",
+        "farewell",
+        "end"
+      ],
+      "required": false
+    }
+  ],
+  "emotion_arc": [
+    "calm",
+    "happy",
+    "fun",
+    "emotional"
+  ],
+  "pacing": {
+    "min_clip_seconds": 1.2,
+    "max_clip_seconds": 7.0,
+    "snap": "half-bar"
+  },
+  "audio": {
+    "mode": "music",
+    "music_volume": 1.0,
+    "original_volume": 0.15
+  },
+  "autodetect": {
+    "scene_threshold": 0.28,
+    "min_gap_seconds": 2.5,
+    "prefer_loud": true
+  },
+  "schema": 1
+}

@@ -29,7 +29,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from video_editor.project import EMOTIONS
+from video_editor.presets import EMOTIONS
 from video_editor.probe import require_tools
 
 _META_RE = re.compile(r"lavfi\.signalstats\.(\w+)=(-?\d+(?:\.\d+)?)")
@@ -77,21 +77,30 @@ def _warmth_from_hue(hue_degrees: float) -> float:
     return _clamp(1.0 - delta / 180.0)
 
 
-def visual_features(path: str | Path) -> dict[str, float]:
-    """Average brightness, saturation, hue and inter-frame difference."""
+def visual_features(
+    path: str | Path,
+    *,
+    start: float = 0.0,
+    duration: float | None = None,
+) -> dict[str, float]:
+    """Average brightness, saturation, hue and inter-frame difference.
+
+    `start`/`duration` analyse one stretch of a longer file, which is how
+    every clip is measured: the footage is never cut, only read in place.
+    """
     require_tools()
     chain = (
         f"fps={ANALYSIS_FPS},scale=160:-2,signalstats,"
         "metadata=print:file=-"
     )
-    proc = subprocess.run(
-        [
-            "ffmpeg", "-hide_banner", "-v", "error",
-            "-i", str(path), "-vf", chain, "-an", "-f", "null", "-",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    cmd = ["ffmpeg", "-hide_banner", "-v", "error"]
+    if start > 0:
+        cmd += ["-ss", f"{start:.3f}"]
+    cmd += ["-i", str(path)]
+    if duration is not None:
+        cmd += ["-t", f"{max(duration, 0.05):.3f}"]
+    cmd += ["-vf", chain, "-an", "-f", "null", "-"]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         raise EmotionError(
             f"ffmpeg could not analyse {Path(path).name}: "
@@ -117,14 +126,19 @@ def visual_features(path: str | Path) -> dict[str, float]:
     }
 
 
-def audio_features(path: str | Path) -> tuple[float, float, bool]:
-    """Return (energy 0..1, dynamics 0..1, has_audio)."""
+def audio_features(
+    path: str | Path,
+    *,
+    start: float = 0.0,
+    duration: float | None = None,
+) -> tuple[float, float, bool]:
+    """Return (energy 0..1, dynamics 0..1, has_audio) for a stretch of audio."""
     # Imported here so a video-only install never pays for it.
     from video_editor.beats import BeatError, loudness_envelope
 
     try:
-        _, levels = loudness_envelope(path)
-    except (BeatError, Exception):  # no audio stream, or too short to measure
+        _, levels = loudness_envelope(path, start=start, duration=duration)
+    except Exception:  # no audio stream, or too short to measure
         return 0.0, 0.0, False
     if not levels:
         return 0.0, 0.0, False
@@ -140,10 +154,15 @@ def audio_features(path: str | Path) -> tuple[float, float, bool]:
     return energy, dynamics, True
 
 
-def extract_features(path: str | Path) -> Features:
+def extract_features(
+    path: str | Path,
+    *,
+    start: float = 0.0,
+    duration: float | None = None,
+) -> Features:
     """Everything the heuristic backend needs, in two ffmpeg passes."""
-    vis = visual_features(path)
-    energy, dynamics, has_audio = audio_features(path)
+    vis = visual_features(path, start=start, duration=duration)
+    energy, dynamics, has_audio = audio_features(path, start=start, duration=duration)
     return Features(
         brightness=_clamp(vis["yavg"] / 255.0),
         saturation=_clamp(vis["satavg"] / 110.0),
@@ -163,8 +182,18 @@ class Backend:
     def available(self) -> bool:
         raise NotImplementedError
 
-    def score(self, path: str | Path) -> tuple[dict[str, float], Features]:
-        """Return (scores per emotion, the features they came from)."""
+    def score(
+        self,
+        path: str | Path,
+        *,
+        start: float = 0.0,
+        duration: float | None = None,
+    ) -> tuple[dict[str, float], Features]:
+        """Score one stretch of a source file.
+
+        The footage is read in place - `start` and `duration` locate the clip
+        inside the original file, so nothing has to be cut out first.
+        """
         raise NotImplementedError
 
 
@@ -176,8 +205,14 @@ class HeuristicBackend(Backend):
     def available(self) -> bool:
         return True
 
-    def score(self, path: str | Path) -> tuple[dict[str, float], Features]:
-        f = extract_features(path)
+    def score(
+        self,
+        path: str | Path,
+        *,
+        start: float = 0.0,
+        duration: float | None = None,
+    ) -> tuple[dict[str, float], Features]:
+        f = extract_features(path, start=start, duration=duration)
         still = 1.0 - f.motion
         quiet = 1.0 - f.audio_energy
         steady = 1.0 - f.audio_dynamics
@@ -249,14 +284,20 @@ class FaceBackend(Backend):
         except Exception:
             return None
 
-    def score(self, path: str | Path) -> tuple[dict[str, float], Features]:
+    def score(
+        self,
+        path: str | Path,
+        *,
+        start: float = 0.0,
+        duration: float | None = None,
+    ) -> tuple[dict[str, float], Features]:
         detector = self._load()
         if detector is None:
             raise EmotionError(
                 "no face-emotion model installed. Run `pip install fer` "
                 "(or `pip install deepface`), or use --backend heuristic."
             )
-        frames = self._sample_frames(path)
+        frames = self._sample_frames(path, start=start, duration=duration)
         if not frames:
             raise EmotionError(f"could not read frames from {Path(path).name}")
 
@@ -267,10 +308,12 @@ class FaceBackend(Backend):
                 tally[label] = tally.get(label, 0.0) + value
                 faces_seen += 1
 
-        features = extract_features(path)
+        features = extract_features(path, start=start, duration=duration)
         if not tally:
             # No faces found: fall back rather than return nothing useful.
-            scores, feats = HeuristicBackend().score(path)
+            scores, feats = HeuristicBackend().score(
+                path, start=start, duration=duration
+            )
             feats.faces = {}
             return scores, feats
 
@@ -285,22 +328,34 @@ class FaceBackend(Backend):
         features.faces = {k: round(v / (faces_seen or 1), 4) for k, v in tally.items()}
         return {k: round(v / total, 4) for k, v in scores.items()}, features
 
-    def _sample_frames(self, path: str | Path, count: int = 6) -> list[Path]:
-        """Write `count` JPEGs spread across the clip into a temp folder."""
+    def _sample_frames(
+        self,
+        path: str | Path,
+        *,
+        start: float = 0.0,
+        duration: float | None = None,
+        count: int = 6,
+    ) -> list[Path]:
+        """Write `count` JPEGs spread across the clip into a temp folder.
+
+        These are the only files this tool ever extracts from your footage,
+        they are a few kilobytes each, and they are deleted straight after.
+        """
         import tempfile
 
         from video_editor.probe import probe
 
-        info = probe(path)
+        span = duration if duration is not None else probe(path).duration - start
+        span = max(span, 0.1)
         out_dir = Path(tempfile.mkdtemp(prefix="ve_faces_"))
-        step = info.duration / (count + 1)
+        step = span / (count + 1)
         frames: list[Path] = []
         for i in range(1, count + 1):
             dest = out_dir / f"f{i:02d}.jpg"
             proc = subprocess.run(
                 [
                     "ffmpeg", "-hide_banner", "-v", "error", "-y",
-                    "-ss", f"{step * i:.3f}", "-i", str(path),
+                    "-ss", f"{start + step * i:.3f}", "-i", str(path),
                     "-frames:v", "1", "-q:v", "3", str(dest),
                 ],
                 capture_output=True,

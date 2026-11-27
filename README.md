@@ -1,22 +1,31 @@
 # video_editor
 
-A five-step video editor for **engagement and marriage films**, driven from the
-command line. You hand it raw footage; it walks you through choosing clips,
-ordering them, cutting them to the beat of a song, sorting them by emotion, and
-rendering the finished film.
-
-Every step writes into its own numbered folder, so you can stop after any step,
-inspect the files yourself, and pick up later.
+A five-step editor for **event films** — marriage, engagement, party, baby
+shower, birthday, anniversary. Point it at raw footage; it finds the moments,
+puts them in order, cuts them to the beat of a song, reads the mood of each
+one, and renders the film.
 
 ```
-raw footage  ->  1 SELECT  ->  2 ARRANGE  ->  3 MUSIC  ->  4 EMOTIONS  ->  5 RENDER  ->  final film
-                 what to      what order     cut to the    sort by         merge
-                 keep                        beat          feeling
+raw footage → 1 SELECT → 2 ARRANGE → 3 MUSIC → 4 EMOTIONS → 5 RENDER → your film
+              find the    what order  cut to    sort by       merge
+              moments                 the beat  feeling
 ```
 
-- **No Python packages to install.** Standard library only.
+### The rule that shapes everything
+
+> A clip is a **reference** — a file path plus an in and out point. No footage
+> is ever copied, cut or duplicated into a project. Only one video file is
+> ever written: the finished film.
+
+A project folder is therefore a few hundred kilobytes of JSON no matter how
+much footage you give it, every step runs in seconds, changing your mind is
+free, and the final render goes straight back to the original frames — losing
+nothing to an intermediate encode.
+
+- **Nothing to `pip install`.** Standard library only.
 - **One external tool:** ffmpeg (which ships ffprobe).
-- Beat detection, frame matching and mood analysis are all implemented here.
+- **Drivable by an agent:** `--json` on every command. See [CLAUDE.md](CLAUDE.md).
+- **Event types are data:** a new kind of event is one JSON file, not code.
 
 ---
 
@@ -25,8 +34,10 @@ raw footage  ->  1 SELECT  ->  2 ARRANGE  ->  3 MUSIC  ->  4 EMOTIONS  ->  5 REN
 - [Install](#install)
 - [Quick start](#quick-start)
 - [The five steps](#the-five-steps)
-- [The folders it makes](#the-folders-it-makes)
+- [Event presets](#event-presets)
+- [What a project looks like](#what-a-project-looks-like)
 - [Every command](#every-command)
+- [Driving it from an agent](#driving-it-from-an-agent)
 - [How the clever bits work](#how-the-clever-bits-work)
 - [Honest limits](#honest-limits)
 - [Troubleshooting](#troubleshooting)
@@ -38,375 +49,442 @@ raw footage  ->  1 SELECT  ->  2 ARRANGE  ->  3 MUSIC  ->  4 EMOTIONS  ->  5 REN
 
 **1. Python 3.10 or newer**
 
-```bash
-python --version
-```
-
 **2. ffmpeg** — the only dependency.
 
 | System | Command |
 |---|---|
-| Windows | `winget install Gyan.FFmpeg` (or download from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/)) |
+| Windows | `winget install Gyan.FFmpeg` |
 | macOS | `brew install ffmpeg` |
 | Debian/Ubuntu | `sudo apt install ffmpeg` |
 | Fedora | `sudo dnf install ffmpeg` |
 
-Check it:
-
-```bash
-ffmpeg -version
-ffprobe -version
-```
-
 **3. This repo**
 
 ```bash
-git clone https://github.com/<your-username>/video_editor.git
-cd video_editor
-python -m video_editor --help
+git clone https://github.com/priyangrakholiya-droid/video_priyang.git
+cd video_priyang
+export PYTHONPATH=src            # Windows PowerShell: $env:PYTHONPATH="src"
+python -m video_editor doctor
 ```
 
-Nothing to `pip install`. If you would rather install it as a command:
+`doctor` tells you whether this machine can actually cut a film:
+
+```
+  check                    state  detail
+  ffmpeg                   ok     /usr/bin/ffmpeg
+  ffprobe                  ok     /usr/bin/ffprobe
+  python                   ok     3.13.5
+  presets                  ok     7 loaded: anniversary, baby_shower, birthday, ...
+  face backend (optional)  ok     not installed - `pip install fer` to enable
+  [ok] ready
+```
+
+Prefer a real command instead of `PYTHONPATH`:
 
 ```bash
 pip install -e .
-video-editor --help        # same thing as python -m video_editor
+video-editor doctor
 ```
 
 ---
 
 ## Quick start
 
-One long recording, a five minute film, cut to a song:
+### Try it with no footage at all
 
 ```bash
-python -m video_editor run "D:/wedding/full_day.mp4" --minutes 5 --song "D:/music/song.mp3"
+bash scripts/make_sample_footage.sh
+bash scripts/run_sample_pipeline.sh
 ```
 
-Or step by step, which is what you normally want:
+That generates synthetic footage and a 120 BPM track with ffmpeg, then runs all
+five steps and checks a real film came out.
+
+### A real wedding, hands-off
 
 ```bash
-python -m video_editor select  "D:/wedding/clips"      # step 1
-python -m video_editor arrange my-wedding              # step 2
-python -m video_editor music   my-wedding --song "song.mp3"
-python -m video_editor emotions my-wedding             # step 4
-python -m video_editor render  my-wedding              # step 5
+python -m video_editor run "D:/wedding/full_day.mp4" \
+  --name "Priya & Rahul Marriage" --preset marriage --minutes 6 \
+  --song "D:/music/song.mp3"
+```
+
+### A real wedding, step by step
+
+```bash
+python -m video_editor select  "D:/wedding/full_day.mp4" --preset marriage --minutes 6
+python -m video_editor arrange priya-rahul-marriage --mode story
+python -m video_editor music   priya-rahul-marriage --song "D:/music/song.mp3"
+python -m video_editor emotions priya-rahul-marriage
+python -m video_editor render  priya-rahul-marriage --audio mix
 ```
 
 At any point:
 
 ```bash
-python -m video_editor status my-wedding    # where am I?
-python -m video_editor list                 # all my projects
-```
-
-### No footage to try it on?
-
-Build some synthetic footage and a 120 BPM click track, then run the whole
-pipeline on it:
-
-```bash
-bash tools/make_sample_footage.sh
+python -m video_editor status priya-rahul-marriage    # where am I
+python -m video_editor plan   priya-rahul-marriage    # the film as data
+python -m video_editor list                           # every project
 ```
 
 ---
 
 ## The five steps
 
-### Step 1 — `select`: choose what to keep
+### Step 1 — `select`: find the moments
 
-Point it at **either one long recording or a folder of clips** — it works out
-which you gave it.
+Point it at **one long recording or a folder of clips** — it detects which.
 
 ```bash
-python -m video_editor select "D:/wedding/full_day.mp4"
-python -m video_editor select "D:/wedding/clips/"
+python -m video_editor select "D:/wedding/full_day.mp4" --preset marriage --minutes 6
 ```
 
-It reads every file, prints an inventory, then asks the question the whole edit
-hangs on:
+**`--mode auto` (default) scans the footage for you.** It looks for shot
+changes and loud moments, scores each candidate, spreads them out so the film
+does not take six clips from the same minute, and proposes enough to fill your
+target length:
 
 ```
-How many minutes should the finished video be? [5]:
+Scanning the footage for moments
+  . looking for shot changes and loud moments - no footage is written, this only reads
+  [1/1] full_day.mp4
+
+  id    source          in            length  segment  score  why
+  c001  full_day.mp4    00:04:20.000  8s      baraat   0.76   scene 0.74, loudness 0.79 -> score 0.76
+  c002  full_day.mp4    00:12:40.000  10s     varmala  0.93   scene 1.00, loudness 0.79 -> score 0.93
+  [####################........] 4m 31s of 6m 00s  (75%)
 ```
 
-Then you type in/out points, and after each one it shows how much of your
-target you have filled:
+Tuning:
 
-```
-select [2 clips]: 12:40 12:58 #varmala "garland moment"
-  [ok] c003: full_day.mp4 00:12:40.000 -> 00:12:58.000 (18s)  #varmala
-  [##########..................] 1m 51s of 5m 00s  (37%)
-  . 3m 09s still to fill
-```
+| Symptom | Fix |
+|---|---|
+| Too few moments | `--threshold 0.15` (more sensitive) |
+| Too many, too similar | `--threshold 0.45 --min-gap 10` |
+| All from one part of the day | raise `--min-gap` |
 
-**What you can type:**
+**`--mode manual` takes typed in/out points** instead, with a progress bar
+against your target:
 
 | Input | Meaning |
 |---|---|
-| `1:30 1:48` | take that range out of the source |
+| `1:30 1:48` | that range out of the source |
 | `3 1:30 1:48` | from file #3 (when you gave a folder) |
-| `3` | take the whole of file #3 |
+| `3` | the whole of file #3 |
 | `1:30 1:48 #haldi` | file it under the haldi segment |
-| `1:30 1:48 "ring close-up"` | give it a label |
-| `list` `files` `segments` `undo` `drop c003` `help` `done` `quit` | commands |
+| `1:30 1:48 "ring close-up"` | label it |
+| `list` `files` `segments` `undo` `drop c003` `help` `done` | commands |
 
 Timestamps accept `90`, `1:30`, `00:01:30.5` or `1h2m3s`.
 
-When you type `done`, ffmpeg cuts the real clips into
-`02_selected/<segment>/` and every in/out point is saved to `project.json`.
+Either way, the result is `01_selection/selection.json` — references, no video.
 
-**Options:** `--name`, `--preset {engagement,marriage,general}`, `--minutes N`,
-`--stream-copy` (much faster, but cuts snap to keyframes and can drift a second
-or two).
-
----
-
-### Step 2 — `arrange`: which clip comes after which
+### Step 2 — `arrange`: which clip follows which
 
 ```bash
 python -m video_editor arrange my-wedding --mode story
 ```
 
-Four ways to answer "what goes next?":
+The edge frames are read straight out of the original footage and turned into
+64-bit fingerprints, so the tool can tell you how each cut will look:
+
+```
+  #  id    at            length  segment  emotion    cut into it    what it is
+  1  c001  00:00:00.000  18s     baraat   fun        -              groom arriving
+  2  c005  00:00:18.000  12s     baraat   fun        9/64 smooth    dhol players
+  3  c009  00:00:30.000  22s     varmala  romantic   31/64 JUMP     garland
+  . 23 cuts: 14 smooth, 3 visible jumps, average 18.2/64
+```
 
 | Mode | What it does |
 |---|---|
-| **`story`** | Preset segment order (mehndi → haldi → baraat → varmala → pheras → vidaai → reception), then frame-matched inside each segment. **Use this for a wedding.** |
-| **`match`** | Pure frame matching: compares the **last frame of every clip** against the **first frame of every other clip** and chains them so each cut lands on the most similar-looking frame. This is what stops an edit feeling jumpy. |
-| **`emotion`** | Builds an arc: calm → happy → fun → romantic → ritual → emotional. Run step 4 first. |
-| **`manual`** | You type the order: `c003 c001 c004`. |
+| **`story`** | the preset's ceremony order, frame-matched inside each part. **Use this.** |
+| `match` | pure frame matching — smoothest possible cuts, ignores chronology |
+| `emotion` | the preset's emotional arc; run step 4 first |
+| `manual` | you type the order: `c003 c001 c004` |
 
-It then shows you how good each cut is, measured in bits of difference out of 64:
-
-```
-  #  id    length  segment  emotion  cut into it   what it is
-  1  c001  6s      haldi    happy    -             haldi.mp4
-  2  c004  8s      pheras   ritual   11/64 smooth  full_day.mp4
-  3  c003  6s      vidaai   emotional 16/64 ok     vidaai.mp4
-  4  c002  6s      dance    fun      54/64 JUMP    dance.mp4
-  . 3 cuts: 1 smooth, 1 visible jumps, average distance 27.0/64
-```
-
-Output goes to `03_arranged/` as numbered files, plus `concat.txt` (feeds
-ffmpeg directly) and `edl.csv` (opens in Excel or any editor).
-
----
-
-### Step 3 — `music`: find the beat, cut to it
+### Step 3 — `music`: cut to the beat
 
 ```bash
-python -m video_editor music my-wedding --song "D:/music/song.mp3" --snap bar
+python -m video_editor music my-wedding --song "song.mp3" --snap bar
 ```
 
-It asks for the song if you do not pass one, copies it into `04_music/` so the
-project travels on its own, detects the tempo, and rounds **every clip's length
-to a whole number of beats** so cut 1 ends exactly as a beat lands and cut 2
-starts there.
+It detects the tempo and rounds **every clip to a whole number of beats**, so
+cut 1 ends exactly as a beat lands and cut 2 starts there:
 
 ```
   [ok] 128.0 BPM  (beat every 0.469s, first beat at 0.212s, 512 beats, strong pulse)
   . one bar = 4 beat(s) = 1.875s at 128.0 BPM
 
   #  id    was   now   change  holds     starts at
-  1  c001  6s    5s    -0.63s  12 beats  00:00:00.000
-  2  c004  8s    7s    -0.50s  16 beats  00:00:05.625
+  1  c001  18s   17s   -0.75s  36 beats  00:00:00.000
+  2  c005  12s   13s   +0.88s  28 beats  00:00:16.875
+  [ok] fits inside the song with 24s to spare
 ```
 
-**`--snap` choices:**
-
-| Value | Cut lands every | Good for |
+| `--snap` | Cut lands every | Good for |
 |---|---|---|
-| `beat` | 1 beat | fast dance montages |
-| `half-bar` | 2 beats | general |
-| `bar` | 4 beats (the "one") | calm, most wedding films — **default** |
-| `two-bar` | 8 beats | slow romantic holds |
+| `beat` | 1 beat | fast dance montage, sangeet |
+| `half-bar` | 2 beats | general — party and birthday default |
+| `bar` | 4 beats | most event films — wedding default |
+| `two-bar` | 8 beats | slow romantic holds — anniversary default |
 
-Lengthening a clip pulls extra frames from the original source when they exist,
-so snapping does not cost you footage you chose.
+A clip that needs to grow pulls extra frames from the original source, so
+snapping never costs you footage you chose. `--fit both` trims whole beats off
+the longest clips until the film fits inside both the song and your target.
 
-**`--fit song|target|both`** trims whole beats off the longest clips until the
-film fits inside the song, or your target length, or both.
-
-Writes `04_music/beat_sheet.csv` (which beat each clip starts on) and
-`04_music/beats.txt` (the whole grid).
-
----
-
-### Step 4 — `emotions`: sort clips by feeling
+### Step 4 — `emotions`: read the mood
 
 ```bash
 python -m video_editor emotions my-wedding
 ```
 
-Scores each clip and hard-links it into the folder it belongs to:
+Scores each clip across six feelings and records all six, not just the winner:
 
 ```
-05_emotion/
-  happy/      c004_cake.mp4  c011_dance-floor.mp4
-  emotional/  c019_vidaai.mp4
-  romantic/   c007_couple-walk.mp4
-  fun/        c012_baraat.mp4
-  ritual/     c015_pheras.mp4
-  calm/       c002_decor.mp4
-  index.csv   every clip, every score
+  id    emotion    length  segment  top scores               what it is
+  c001  fun        17s     baraat   fun 38%, happy 27%       groom arriving
+  c019  emotional  14s     vidaai   emotional 41%, calm 19%  mother
+
+  emotion    clips  runtime  clip ids
+  fun        7      1m 44s   c001 c005 c011 ...
+  emotional  3      48s      c019 c021 c022
 ```
 
-So when you want "all the emotional moments", you open one folder instead of
-scrubbing the whole wedding again.
+Close calls are flagged, and the tool offers a correction pass. Results land in
+`04_emotion/scores.json` (every score), `groups.json` (the clip ids per
+feeling) and `emotions.csv`.
 
-It flags close calls and offers to let you correct them by hand:
+`--backend face` uses a real facial-expression model instead of the energy
+heuristic — much better, needs `pip install fer`.
 
-```
-review: c007 romantic
-  [ok] c007 -> romantic
-```
-
-**Two backends:**
-
-| Backend | How | Quality |
-|---|---|---|
-| `heuristic` (default) | brightness, colour warmth, motion, audio loudness and dynamics | good at sorting **energy**, poor at reading **faces** |
-| `face` | a real facial-expression model | much better — needs `pip install fer` |
-
-```bash
-pip install fer                                      # optional
-python -m video_editor emotions my-wedding --backend face
-```
-
----
-
-### Step 5 — `render`: merge the film
+### Step 5 — `render`: make the film
 
 ```bash
 python -m video_editor render my-wedding --audio mix
 ```
 
-Cuts every clip **from the original source** (not from the already-encoded
-clip), so the film is encoded once and loses nothing. Normalises everything to
-one size and frame rate, joins it, lays the song underneath, fades in and out.
+Cuts every clip **from the original source**, normalises to one size and frame
+rate, joins, lays the song underneath starting on its **first beat**, fades in
+and out.
 
 ```
-06_final/
-  my-wedding_final.mp4
-  render_plan.csv
+  clips            24
+  runtime          5m 36s
+  size             1920x1080
+  audio            mix
+  music starts at  0.212s (first beat)
+
+Render 5m 36s now? [Y/n]:
 ```
 
-By default the song is started on its **first beat**, which is what makes the
-cuts land on the music rather than near it.
+| `--audio` | What you hear |
+|---|---|
+| `music` | the song only — clean montage |
+| `mix` | the song over the original sound — vows, laughter, dhol underneath |
+| `original` | no song |
+| `silent` | no audio track |
 
-**Options:** `--audio {music,mix,original,silent}`, `--size 1920x1080`,
-`--fps 30`, `--crf 19` (18 best … 28 small), `--x264-preset veryslow`,
-`--music-volume 0.9`, `--original-volume 0.25`, `--fade 1.5`,
-`--no-align-music`, `--dry-run`.
+Leave `--audio` off and the preset decides. `--dry-run` shows the plan without
+encoding.
 
 ---
 
-## The folders it makes
+## Event presets
+
+```bash
+python -m video_editor presets
+```
+
+```
+  name         title                       target  segments  snap      audio
+  anniversary  Anniversary                 4m      8         two-bar   mix
+  baby_shower  Baby shower                 4m      9         bar       mix
+  birthday     Birthday                    3m      8         half-bar  mix
+  engagement   Engagement / ring ceremony  4m      8         bar       mix
+  general      General purpose             5m      5         bar       mix
+  marriage     Marriage / wedding film     6m      13        bar       mix
+  party        Party / celebration         3m      8         half-bar  music
+```
+
+A preset sets the segments and their order, the emotional arc, how long a clip
+may be, the beat snapping, the audio mix, and how hard the detector looks.
+
+| Preset | Segments |
+|---|---|
+| `marriage` | mehndi, haldi, baraat, welcome, varmala, pheras, rituals, couple_portraits, family, vidaai, reception, dance, candid |
+| `engagement` | arrival, ring_exchange, couple_portraits, family, speeches, cake_and_toast, dance, candid |
+| `party` | setup, arrivals, toast, food, games, dance, crowd, goodbyes |
+| `baby_shower` | decor, arrivals, mother_to_be, reveal, blessings, games, gifts, cake, guests |
+| `birthday` | decor, arrivals, cake_cutting, song, gifts, games, family, candid |
+| `anniversary` | opening, couple, memories, family, speeches, cake, dance, closing |
+
+`python -m video_editor presets --verbose` shows each segment's mood and the
+file-name keywords it matches — a file called `haldi_cam2.mp4` is filed under
+haldi automatically.
+
+### Adding your own event type
+
+It is a data file, not code. Drop this in `config/presets/`:
+
+```json
+{
+  "name": "naming_ceremony",
+  "title": "Naming ceremony",
+  "description": "A namkaran: the prayer, the name, the family.",
+  "target_minutes": 3.0,
+  "segments": [
+    {"id": "prayer", "mood": "ritual", "keywords": ["prayer", "pooja"]},
+    {"id": "naming", "mood": "happy", "keywords": ["name"], "required": true},
+    {"id": "family", "mood": "happy", "keywords": ["family", "guests"]}
+  ],
+  "emotion_arc": ["calm", "ritual", "happy", "emotional"],
+  "pacing": {"min_clip_seconds": 2.0, "max_clip_seconds": 10.0, "snap": "bar"},
+  "audio": {"mode": "mix", "music_volume": 0.85, "original_volume": 0.3},
+  "autodetect": {"scene_threshold": 0.3, "min_gap_seconds": 4.0, "prefer_loud": false}
+}
+```
+
+```bash
+python -m video_editor presets          # it is now listed
+```
+
+---
+
+## What a project looks like
+
+Definitions, not video:
 
 ```
 projects/priya-rahul-marriage/
-  project.json          every decision you have made, the single source of truth
-  01_source/            room for copies of originals (optional)
-  02_selected/          STEP 1: the clips you kept, in segment folders
-    mehndi/  haldi/  baraat/  varmala/  pheras/  vidaai/  reception/ ...
-  03_arranged/          STEP 2: the same clips, numbered in running order
-    001_c001_haldi.mp4  002_c004_pheras.mp4 ...
-    concat.txt          ready for ffmpeg
-    edl.csv             opens in Excel or any NLE
-  04_music/             STEP 3
-    song.mp3            your song, copied in
-    beats.txt           every beat time in the song
+  project.json          every decision — the single source of truth
+  edit.json             the portable edit plan (references + timings)
+  01_selection/
+    selection.json      which stretches of footage, and why each was chosen
+  02_arrangement/
+    order.json          the running order, with a join cost per cut
+    cuts.csv            the same thing for a spreadsheet
+  03_music/
+    song.mp3            your song, copied in so the project travels alone
+    beats.txt           every beat time
     beat_sheet.csv      which beat each clip starts on
-  05_emotion/           STEP 4
-    happy/ emotional/ romantic/ fun/ ritual/ calm/
-    index.csv           every clip with all six scores
-  06_final/             STEP 5
-    priya-rahul-marriage_final.mp4
-    render_plan.csv
+  04_emotion/
+    scores.json         all six scores per clip
+    groups.json         the clip ids in each feeling
+    emotions.csv        for a spreadsheet
+  05_output/
+    priya-rahul-marriage_final.mp4      ← the only video in the whole project
+    render_plan.csv                     what went in, in order
 ```
 
-Clips are **hard-linked** between folders where the filesystem allows it, so
-appearing in three folders costs the disk space of one file.
-
-### Segment presets
-
-| `--preset marriage` | `--preset engagement` | `--preset general` |
-|---|---|---|
-| mehndi, haldi, baraat, welcome, varmala, pheras, rituals, couple_portraits, family, vidaai, reception, dance, candid | arrival, ring_exchange, couple_portraits, family, speeches, cake_and_toast, dance, candid | opening, main, people, detail, closing |
+A 24-clip wedding project is about 700 KB — nearly all of it the copied song.
+`project.json` is meant to be edited by hand; see
+[docs/FOLDERS.md](docs/FOLDERS.md) for every field.
 
 ---
 
 ## Every command
 
 ```
-python -m video_editor select   <footage>   [--name N] [--preset P] [--minutes M] [--stream-copy]
-python -m video_editor arrange  [project]   [--mode story|match|emotion|manual] [--first ID] [--rehash]
-python -m video_editor music    [project]   [--song S] [--snap beat|half-bar|bar|two-bar]
-                                            [--fit song|target|both] [--beats-per-bar 4]
-python -m video_editor emotions [project]   [--backend heuristic|face] [--force] [--no-review]
-python -m video_editor render   [project]   [--audio music|mix|original|silent] [--size WxH]
-                                            [--fps N] [--crf N] [--fade S] [--dry-run] ...
-python -m video_editor run      <footage>   all five steps back to back
-python -m video_editor status   [project]
-python -m video_editor list
+python -m video_editor select   <footage>  [--mode auto|manual] [--preset E] [--minutes M]
+                                           [--threshold T] [--min-gap G] [--name N]
+python -m video_editor arrange  [project]  [--mode story|match|emotion|manual]
+                                           [--first ID] [--rehash] [--yes]
+python -m video_editor music    [project]  [--song S] [--snap beat|half-bar|bar|two-bar]
+                                           [--fit song|target|both]
+python -m video_editor emotions [project]  [--backend heuristic|face] [--force]
+                                           [--no-review] [--no-prior]
+python -m video_editor render   [project]  [--audio music|mix|original|silent]
+                                           [--size WxH] [--crf N] [--dry-run] [--yes]
+python -m video_editor run      <footage>  all five steps, unattended
+python -m video_editor status   [project]  where a project stands
+python -m video_editor plan     [project]  the edit plan
+python -m video_editor list                every project
+python -m video_editor presets  [-v]       every kind of event
+python -m video_editor doctor              is this machine ready?
 ```
 
-`[project]` accepts a folder path **or** just the project's name. Leave it out
-entirely and it uses the only project you have, or asks which one.
+`[project]` takes a path **or** just the name. Leave it out and it uses the
+only project you have. Every command takes `--json`, `--projects-dir` and
+`--presets-dir`.
 
-`--projects-dir` moves where projects live (default `./projects`).
+---
+
+## Driving it from an agent
+
+Every command takes `--json`: human output is silenced, one JSON document is
+printed, and **no question is ever asked** — so a step cannot hang waiting for
+input an agent cannot give.
+
+```bash
+python -m video_editor run footage/ --preset party --minutes 3 --song song.mp3 --json
+```
+
+```json
+{
+  "project": "demo",
+  "preset": "party",
+  "clips": 5,
+  "render_duration": 34.745,
+  "music": {"file": "03_music/song.m4a", "bpm": 120.88, "snap": "half-bar"},
+  "by_emotion": {"fun": 3, "calm": 2},
+  "steps_done": ["select", "arrange", "music", "emotions", "render"],
+  "next_step": null,
+  "rendered": "projects/demo/05_output/demo_final.mp4"
+}
+```
+
+Errors are JSON too, so nothing needs prose parsing:
+
+```json
+{"error": "no project at wedding-2", "error_type": "ProjectError"}
+```
+
+Exit codes: `0` fine, `1` step failed, `2` bad input, `3` ffmpeg missing,
+`130` cancelled.
+
+**[CLAUDE.md](CLAUDE.md) is the full agent brief** — the recipe, the tuning
+table, what to edit by hand, and the rules (never render without showing the
+plan, never install packages unasked, never claim it read faces).
+[videoeditor.json](videoeditor.json) is the machine-readable manifest of the
+pipeline, its settings and its limits.
 
 ---
 
 ## How the clever bits work
 
-### Beat detection (`video_editor/beats.py`)
+| Part | In one line |
+|---|---|
+| **Moment finding** | ffmpeg's `select` filter reports scene scores; the audio is reduced to a loudness curve; each shot boundary is scored on both, then spread out and ranked |
+| **Beat detection** | ffmpeg reduces the song to a 23 ms loudness envelope; differencing gives onset strength; autocorrelation gives the tempo; a comb filter gives the phase |
+| **Frame matching** | each edge frame becomes a 9×8 greyscale difference hash (64 bits); the cost of a cut is the Hamming distance; ordering is a greedy nearest-neighbour walk |
+| **Mood scoring** | `signalstats` gives brightness, saturation, hue and inter-frame difference; the audio envelope gives loudness and its swing; six weighted sums produce the six scores |
 
-1. ffmpeg resamples the song to mono 22050 Hz, chops it into 512-sample frames
-   (~23 ms) and prints each frame's RMS level — a loudness envelope.
-2. Differencing that envelope and keeping the rises gives **onset strength**:
-   loudness climbing fast means something was struck.
-3. **Autocorrelating** the onset signal finds the lag at which the music repeats
-   — the beat period. Parabolic interpolation around the peak gets sub-frame
-   precision, and octave errors are folded back into 70–180 BPM.
-4. A **comb filter** slid across one period finds the phase — where beat one is.
+Beat detection is verified against generated click tracks: 120 BPM reads as
+120.9, 100 as 99.7. Scene detection is verified against footage with cuts at
+known times.
 
-Verified against generated click tracks: 120 BPM reads as 120.9, 100 as 99.7.
-
-### Frame matching (`video_editor/probe.py`, `steps/arrange.py`)
-
-Each clip's first and last frame are scaled to 9×8 greyscale and turned into a
-64-bit **difference hash** (each bit: is this pixel brighter than the one to its
-right?). The cost of cutting from clip A to clip B is the Hamming distance
-between A's tail hash and B's head hash. Arranging is then a greedy
-nearest-neighbour walk over those costs.
-
-### Mood scoring (`video_editor/emotion.py`)
-
-ffmpeg's `signalstats` gives average brightness, saturation, hue and
-frame-to-frame difference; the audio envelope gives loudness and how much it
-swings. Those six numbers are weighted into the six emotion buckets — a loud,
-fast, saturated clip scores `fun`; a still, dim, dynamic-audio clip scores
-`emotional`.
+[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) explains all four properly,
+including why there is no librosa, numpy or OpenCV.
 
 ---
 
 ## Honest limits
 
-- **The heuristic emotion backend does not read faces.** It reads energy,
-  light and sound. It will put a sad moment shot in bright sunshine in the
-  wrong folder sometimes. Use `--backend face` with `pip install fer` for real
-  expression reading, and use the review pass either way.
-- **Beat detection needs a beat.** A free-tempo song, a solo instrument or a
-  speech will produce a weak pulse; the tool says so (`weak pulse`) instead of
-  pretending.
-- **`--stream-copy` drifts.** Stream copying can only cut on keyframes, so
-  in-points can move by a second or two. It is off by default for that reason.
-- **Rendering re-encodes.** Expect roughly real-time encoding on a normal
-  laptop at the default `veryfast` preset.
-- **Hard links need one filesystem.** Across drives it silently falls back to
-  copying, which uses more disk.
+- **The mood step does not read faces.** The default backend reads energy,
+  light and sound. It sorts a dance floor from a ceremony from b-roll well, and
+  it will misfile a tearful goodbye shot in bright sunshine. `--backend face`
+  with `pip install fer` reads real expressions; the review pass exists for
+  both.
+- **Automatic moment finding uses proxies.** Picture change and loudness are
+  not the same thing as "interesting". It does not know what is in the frame.
+- **Beat detection needs a beat.** Free-tempo music, a solo instrument or
+  speech produce a `weak pulse` warning rather than a confident wrong answer.
+- **The beat grid is rigid.** A live recording that drifts in tempo will drift
+  off the grid late in a long film. `--snap beat` reduces the drift per cut.
+- **Rendering re-encodes once.** Expect roughly real-time encoding at the
+  default `veryfast` preset.
+- **Sources must stay put.** A project stores paths. Move your footage and the
+  render fails with `original source is gone` — fix the path in `project.json`.
 
 ---
 
@@ -415,27 +493,35 @@ fast, saturated clip scores `fun`; a still, dim, dynamic-audio clip scores
 | Problem | Fix |
 |---|---|
 | `ffmpeg not found on PATH` | Install ffmpeg, then open a **new** terminal |
-| `no video files in <folder>` | Check the extension is one of mp4, mov, mkv, avi, m4v, webm, mpg, wmv, flv, mts, m2ts, 3gp, ts |
-| `could not read the duration` | The file is damaged or not really video. Try `ffprobe <file>` |
-| Cuts feel slightly off the beat | The song's tempo drifts (live recording). Try `--snap beat` |
-| `weak pulse` warning | Free-tempo song. Check `beat_sheet.csv` before trusting the cuts |
-| Emotions all land in one folder | Normal for footage shot in one room at one brightness. Use `--backend face`, or correct them in the review pass |
-| Render is slow | `--x264-preset ultrafast --crf 23`, or render a `--dry-run` first |
-| `this step needs an open input` | You are piping from a script. Pass the values as options instead |
+| `No module named video_editor` | `export PYTHONPATH=src`, or `pip install -e .` |
+| `no moments found` | The footage is one static shot. `--threshold 0.1`, or use `--mode manual` |
+| `no video files in <folder>` | Check the extension: mp4, mov, mkv, avi, m4v, webm, mpg, wmv, flv, mts, m2ts, 3gp, ts |
+| `original source is gone` | The footage moved. Fix `source` in `project.json` |
+| `the preset ... is not installed` | Run from the repo root, or pass `--presets-dir` |
+| `needs an answer, but --json ... cannot ask` | An interactive-only mode under `--json`. Pass the value as a flag |
+| Cuts feel slightly off the beat | The song drifts in tempo. Try `--snap beat` |
+| Emotions all in one bucket | Normal for footage shot in one room at one brightness. `--backend face`, or correct them in the review pass |
+| Render is slow | `--x264-preset ultrafast --crf 23`, or `--size 1280x720` |
 
 ---
 
 ## Tests
 
-54 tests, standard library only, no network, no checked-in media (the audio
-tests build their own click tracks with ffmpeg and skip if it is missing):
+109 tests, standard library only, no network, **no media checked in** — the
+tests that need audio or video build it with ffmpeg and clean up after
+themselves.
 
 ```bash
+export PYTHONPATH=src
 python -m unittest discover -s tests -t . -v
+bash scripts/run_sample_pipeline.sh      # end-to-end
 ```
+
+CI runs both on Linux and Windows, on Python 3.10 and 3.13.
 
 ---
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). ffmpeg is a separate work under its own licence
+and is not bundled; see [NOTICE](NOTICE).

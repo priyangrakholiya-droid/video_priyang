@@ -1,12 +1,88 @@
 # How it works
 
-The three parts of this tool that are not just file shuffling: beat detection,
-frame matching, and mood scoring. None of them needs a third-party library, and
-all three are small enough to read in an afternoon.
+The four parts of this tool that are not just file shuffling: moment finding,
+beat detection, frame matching, and mood scoring. None of them needs a
+third-party library, and all four are small enough to read in an afternoon.
 
 ---
 
-## 1. Beat detection
+## 1. Moment finding
+
+`video_editor/detect.py`
+
+The goal: given hours of unedited footage, propose the stretches worth keeping,
+so nobody has to type timecodes.
+
+The assumption is the same one highlight detectors use on game streams: **the
+interesting moments are where the picture changes and where the sound peaks.**
+Neither signal is "interest" — they are proxies, and the limits section below
+is honest about that — but together they find shot boundaries and energy, which
+is most of what an event film is cut from.
+
+### Shot boundaries
+
+ffmpeg's `select` filter computes a scene score for every frame: roughly, how
+different this frame is from the one before it. Frames above a threshold are
+printed with their timestamp.
+
+```
+scale=320:-2,select='gt(scene,0.3)',metadata=print:file=-
+```
+
+Scaling to 320 pixels wide first is what makes this usable on long footage. The
+scene score barely changes between 320 and 1920 pixels; the decode cost changes
+enormously.
+
+### Energy
+
+The audio goes through the same reduction the beat detector uses, but with much
+coarser frames — 4096 samples, about 190 ms — because finding a cheer does not
+need 23 ms resolution. Cheering, music, a dhol, laughter and speech all read as
+loudness. Each dB value is mapped onto 0–1 across a −55 to −12 dB window.
+
+### Scoring and spreading
+
+Every shot boundary becomes a candidate clip, running until the next boundary,
+clamped to the preset's `min_clip_seconds` and `max_clip_seconds`. Each is
+scored:
+
+```python
+score = 0.6 * energy + 0.4 * scene_score      # prefer_loud (default)
+score = 0.35 * energy + 0.65 * scene_score    # prefer_loud: false
+```
+
+A baby shower sets `prefer_loud: false`, because the quiet moments matter; a
+party leaves it on.
+
+Then candidates are thinned, best first, vetoing anything within
+`min_gap_seconds` of something already kept:
+
+```python
+for moment in sorted(moments, key=lambda m: -m.score):
+    if not any(abs(other.start - moment.start) < min_gap for other in kept):
+        kept.append(moment)
+```
+
+That is what stops a film taking six clips from the same thirty seconds just
+because the dance floor was loud. Finally the best are taken until the target
+length is filled, and handed back in footage order.
+
+### Where it struggles
+
+- **One long static shot** — a tripod on the mandap for an hour — produces no
+  scene changes at all, and the tool says so rather than inventing moments.
+  `--threshold 0.1` helps; otherwise it needs manual selection.
+- **It does not know what is in the frame.** A loud shot of the catering van
+  scores as well as a loud shot of the vows.
+- **A constantly moving camera** reads as constant change, so the thresholds
+  need raising.
+
+Every proposal carries its reasoning into `01_selection/selection.json`, so you
+can see why a clip was chosen before deciding the tool was wrong.
+
+---
+
+## 2. Beat detection
 
 `video_editor/beats.py`
 
@@ -132,7 +208,7 @@ film. Phase lands within a quarter of a beat of the real clicks.
 
 ---
 
-## 2. Frame matching
+## 3. Frame matching
 
 `video_editor/probe.py` (the hashing), `video_editor/steps/arrange.py` (the chaining)
 
@@ -204,7 +280,7 @@ bucket. You get chronological sense and smooth joins.
 
 ---
 
-## 3. Mood scoring
+## 4. Mood scoring
 
 `video_editor/emotion.py`
 
@@ -213,7 +289,8 @@ romantic, fun, ritual, calm.
 
 ### What is actually measured
 
-ffmpeg's `signalstats` filter, sampled at 4 fps on a 160-pixel-wide copy:
+ffmpeg's `signalstats` filter, sampled at 4 fps on a 160-pixel-wide copy of
+the clip's stretch of the original file (`-ss` and `-t` locate it):
 
 | Signal | What it is |
 |---|---|

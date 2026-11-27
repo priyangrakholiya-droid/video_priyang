@@ -226,9 +226,10 @@ def run(
     group: str | None = None,
     fit: str | None = None,
     beats_per_bar: int = 4,
+    presets_dir: str | None = None,
 ) -> Project:
     """Run step 3 and return the project."""
-    project = Project.load(project_path)
+    project = Project.load(project_path, presets_dir)
     if not project.clips:
         raise RuntimeError("no clips in this project. Run the select step first.")
 
@@ -257,14 +258,13 @@ def run(
             "sheet before you trust the cuts."
         )
 
+    preset_snap = project.setting("pacing", "snap", "bar")
+    if preset_snap not in GROUPS:
+        preset_snap = "bar"
     group_name = group or (
-        ui.choose(
-            "Snap cuts to...",
-            list(GROUPS),
-            default="bar",
-        )
+        ui.choose("Snap cuts to...", list(GROUPS), default=preset_snap)
         if ui.interactive()
-        else "bar"
+        else preset_snap
     )
     if group_name not in GROUPS:
         raise RuntimeError(

@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "id": "priyang/video-editor",
+  "name": "video_editor",
+  "title": "Event video editor",
+  "version": "0.2.0",
+  "license": "MIT",
+  "description": "A five-step editor for event films - marriage, engagement, party, baby shower and more. Finds the moments, orders them, cuts them to the beat of a song, reads the mood of each one, and renders the film. Stores references, never copies: only the finished film is written.",
+  "entry_point": "video_editor.cli:main",
+  "command": "python -m video_editor",
+  "agent_guide": "CLAUDE.md",
+
+  "requires": {
+    "python": ">=3.10",
+    "binaries": ["ffmpeg", "ffprobe"],
+    "python_packages": [],
+    "network": false
+  },
+
+  "capabilities": {
+    "reads_footage": true,
+    "writes_footage": "only the final render",
+    "copies_footage": false,
+    "machine_interface": "--json on every command",
+    "unattended": true,
+    "destructive_operations": ["render overwrites its own output file"]
+  },
+
+  "pipeline": [
+    {
+      "step": "select",
+      "title": "Choose the moments",
+      "folder": "01_selection",
+      "writes": ["selection.json"],
+      "modes": ["auto", "manual"],
+      "notes": "auto scans for shot changes and loud moments; manual takes typed in/out points"
+    },
+    {
+      "step": "arrange",
+      "title": "Decide the running order",
+      "folder": "02_arrangement",
+      "writes": ["order.json", "cuts.csv"],
+      "modes": ["story", "match", "emotion", "manual"],
+      "notes": "cuts are scored by 64-bit difference hashes of the edge frames"
+    },
+    {
+      "step": "music",
+      "title": "Cut to the beat",
+      "folder": "03_music",
+      "writes": ["beatmap.json", "beats.txt", "beat_sheet.csv"],
+      "modes": ["beat", "half-bar", "bar", "two-bar"],
+      "notes": "tempo by autocorrelation of the onset envelope; clip lengths rounded to whole beats"
+    },
+    {
+      "step": "emotions",
+      "title": "Read the mood",
+      "folder": "04_emotion",
+      "writes": ["scores.json", "groups.json", "emotions.csv"],
+      "modes": ["heuristic", "face"],
+      "notes": "heuristic measures light, motion and sound - not faces; face needs `pip install fer`"
+    },
+    {
+      "step": "render",
+      "title": "Make the film",
+      "folder": "05_output",
+      "writes": ["<slug>_final.mp4", "render_plan.csv"],
+      "modes": ["music", "mix", "original", "silent"],
+      "notes": "cuts from the original sources, so the film is encoded exactly once"
+    }
+  ],
+
+  "settings": {
+    "target_minutes": {
+      "type": "number",
+      "default": "the preset's own",
+      "description": "How long the finished film should be."
+    },
+    "scene_threshold": {
+      "type": "number",
+      "range": [0.05, 0.9],
+      "default": 0.3,
+      "description": "Scene-change sensitivity. Lower finds more moments."
+    },
+    "min_gap_seconds": {
+      "type": "number",
+      "default": 4.0,
+      "description": "Minimum separation between two chosen moments, so the film does not take six clips from the same minute."
+    },
+    "min_clip_seconds": {
+      "type": "number",
+      "default": 2.0,
+      "description": "Shortest clip the detector will propose."
+    },
+    "max_clip_seconds": {
+      "type": "number",
+      "default": 12.0,
+      "description": "Longest clip the detector will propose."
+    },
+    "snap": {
+      "type": "enum",
+      "values": ["beat", "half-bar", "bar", "two-bar"],
+      "default": "bar",
+      "description": "What musical unit cuts are rounded to."
+    },
+    "audio_mode": {
+      "type": "enum",
+      "values": ["music", "mix", "original", "silent"],
+      "default": "mix",
+      "description": "What the finished film sounds like."
+    },
+    "crf": {
+      "type": "integer",
+      "range": [15, 30],
+      "default": 19,
+      "description": "Output quality. 18 is high, 28 is small."
+    },
+    "backend": {
+      "type": "enum",
+      "values": ["heuristic", "face"],
+      "default": "heuristic",
+      "description": "How the mood of a clip is judged."
+    }
+  },
+
+  "presets": {
+    "folder": "config/presets",
+    "format": "one JSON file per kind of event",
+    "available": [
+      "marriage",
+      "engagement",
+      "party",
+      "baby_shower",
+      "birthday",
+      "anniversary",
+      "general"
+    ],
+    "extensible": "drop in another JSON file; no code change is needed"
+  },
+
+  "emotions": ["happy", "emotional", "romantic", "fun", "ritual", "calm"],
+
+  "exit_codes": {
+    "0": "success",
+    "1": "a step failed",
+    "2": "bad input",
+    "3": "ffmpeg is missing",
+    "130": "cancelled"
+  },
+
+  "limits": [
+    "The heuristic mood backend measures brightness, motion and loudness. It does not read faces, and it will misfile a sad moment shot in bright sunlight.",
+    "Beat detection needs a periodic pulse. Free-tempo music, speech or a solo instrument produce a weak result, which the tool reports rather than hides.",
+    "The beat grid is rigid, so a live recording that drifts in tempo will drift off the grid late in a long film.",
+    "Automatic moment finding uses picture change and loudness as proxies for interest. It does not know what is happening in the frame."
+  ]
+}

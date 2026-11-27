@@ -1,0 +1,119 @@
+{
+  "name": "anniversary",
+  "title": "Anniversary",
+  "description": "Slower and warmer: the couple, the years behind them, the people around them.",
+  "target_minutes": 4.0,
+  "segments": [
+    {
+      "id": "opening",
+      "title": "Opening",
+      "mood": "calm",
+      "keywords": [
+        "opening",
+        "decor",
+        "venue"
+      ],
+      "required": false
+    },
+    {
+      "id": "couple",
+      "title": "The couple",
+      "mood": "romantic",
+      "keywords": [
+        "couple",
+        "together",
+        "portrait"
+      ],
+      "required": true
+    },
+    {
+      "id": "memories",
+      "title": "Memories and old photos",
+      "mood": "emotional",
+      "keywords": [
+        "memory",
+        "photo",
+        "album",
+        "past"
+      ],
+      "required": false
+    },
+    {
+      "id": "family",
+      "title": "Family",
+      "mood": "happy",
+      "keywords": [
+        "family",
+        "children",
+        "grandchildren"
+      ],
+      "required": false
+    },
+    {
+      "id": "speeches",
+      "title": "Speeches",
+      "mood": "emotional",
+      "keywords": [
+        "speech",
+        "toast",
+        "words"
+      ],
+      "required": false
+    },
+    {
+      "id": "cake",
+      "title": "Cake",
+      "mood": "happy",
+      "keywords": [
+        "cake",
+        "cut"
+      ],
+      "required": false
+    },
+    {
+      "id": "dance",
+      "title": "Dance",
+      "mood": "romantic",
+      "keywords": [
+        "dance",
+        "slow",
+        "floor"
+      ],
+      "required": false
+    },
+    {
+      "id": "closing",
+      "title": "Closing",
+      "mood": "emotional",
+      "keywords": [
+        "closing",
+        "end",
+        "goodbye"
+      ],
+      "required": false
+    }
+  ],
+  "emotion_arc": [
+    "calm",
+    "happy",
+    "romantic",
+    "ritual",
+    "emotional"
+  ],
+  "pacing": {
+    "min_clip_seconds": 2.5,
+    "max_clip_seconds": 16.0,
+    "snap": "two-bar"
+  },
+  "audio": {
+    "mode": "mix",
+    "music_volume": 0.85,
+    "original_volume": 0.3
+  },
+  "autodetect": {
+    "scene_threshold": 0.34,
+    "min_gap_seconds": 6.0,
+    "prefer_loud": false
+  },
+  "schema": 1
+}

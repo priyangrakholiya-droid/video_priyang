@@ -117,8 +117,19 @@ class BeatMap:
 
 
 # --------------------------------------------------------------------- stage 1
-def loudness_envelope(path: str | Path) -> tuple[list[float], list[float]]:
-    """Return (times, dB levels) of the song, one value every ~23 ms."""
+def loudness_envelope(
+    path: str | Path,
+    *,
+    frame_samples: int = FRAME_SAMPLES,
+    start: float = 0.0,
+    duration: float | None = None,
+) -> tuple[list[float], list[float]]:
+    """Return (times, dB levels) of the audio, one value per frame.
+
+    `frame_samples` trades resolution for speed: the 512 default gives a 23 ms
+    hop, which beat detection needs. Scanning a two-hour recording for loud
+    moments does not, so the detector passes something much larger.
+    """
     require_tools()
     path = Path(path)
     if not path.is_file():
@@ -127,19 +138,18 @@ def loudness_envelope(path: str | Path) -> tuple[list[float], list[float]]:
     chain = (
         f"aresample={SAMPLE_RATE},"
         "aformat=channel_layouts=mono,"
-        f"asetnsamples=n={FRAME_SAMPLES}:p=0,"
+        f"asetnsamples=n={int(frame_samples)}:p=0,"
         "astats=metadata=1:reset=1,"
         "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-"
     )
-    proc = subprocess.run(
-        [
-            "ffmpeg", "-hide_banner", "-v", "error",
-            "-i", str(path), "-map", "0:a:0",
-            "-af", chain, "-f", "null", "-",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    cmd = ["ffmpeg", "-hide_banner", "-v", "error"]
+    if start > 0:
+        cmd += ["-ss", f"{start:.3f}"]
+    cmd += ["-i", str(path)]
+    if duration is not None:
+        cmd += ["-t", f"{max(duration, 0.05):.3f}"]
+    cmd += ["-map", "0:a:0", "-af", chain, "-f", "null", "-"]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         err = (proc.stderr or "").strip()[-400:]
         raise BeatError(f"ffmpeg could not read audio from {path.name}: {err}")
@@ -165,10 +175,10 @@ def loudness_envelope(path: str | Path) -> tuple[list[float], list[float]]:
             levels.append(max(db, SILENCE_DB))
             pending = None
 
-    if len(levels) < 40:
+    if len(levels) < 20:
         raise BeatError(
             f"{path.name} gave too little audio to analyse "
-            f"({len(levels)} frames). Is it a real song file?"
+            f"({len(levels)} frames). Is there really an audio track?"
         )
     return times, levels
 

@@ -4,31 +4,39 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "video-editor"
-version = "0.1.0"
-description = "A five-step command line video editor for engagement and marriage films"
+version = "0.2.0"
+description = "A five-step editor for event films - marriage, engagement, party, baby shower and more"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-keywords = ["video", "editing", "ffmpeg", "wedding", "beat-detection"]
+keywords = ["video", "editing", "ffmpeg", "wedding", "beat-detection", "highlights"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",
   "Intended Audience :: End Users/Desktop",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Multimedia :: Video :: Non-Linear Editor",
 ]
 dependencies = []
 
 [project.optional-dependencies]
+# Real facial-expression reading for the emotions step. Large install
+# (opencv + tensorflow); the default heuristic backend needs none of it.
 face = ["fer"]
 
 [project.scripts]
 video-editor = "video_editor.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/priya/video_editor"
-Issues = "https://github.com/priya/video_editor/issues"
+Homepage = "https://github.com/priyangrakholiya-droid/video_priyang"
+Issues = "https://github.com/priyangrakholiya-droid/video_priyang/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["video_editor*"]

@@ -9,9 +9,27 @@ from typing import Callable, Iterable, Sequence
 class Abort(RuntimeError):
     """The user pressed Ctrl-C / Ctrl-D, or answered no to a last question."""
 
+# When quiet, every decorative call below becomes a no-op. Errors still go to
+# stderr, because something going wrong is never decoration. This is what
+# --json uses: the only thing left on stdout is the JSON document itself.
+_QUIET = False
+
+
+def set_quiet(quiet: bool = True) -> None:
+    """Silence the decorative output. Questions then refuse rather than hang."""
+    global _QUIET
+    _QUIET = bool(quiet)
+
+
+def is_quiet() -> bool:
+    return _QUIET
+
+
 
 def interactive() -> bool:
     """True only at a real terminal: guards questions we can skip."""
+    if _QUIET:
+        return False
     try:
         return sys.stdin is not None and sys.stdin.isatty()
     except (AttributeError, ValueError):
@@ -28,6 +46,11 @@ def can_ask() -> bool:
 
 
 def require_interactive(what: str) -> None:
+    if _QUIET:
+        raise Abort(
+            f"{what} needs an answer, but --json/--quiet mode cannot ask. "
+            "Pass the value as a command-line option instead."
+        )
     if not can_ask():
         raise Abort(
             f"{what} needs an open input to ask you questions. "
@@ -37,6 +60,8 @@ def require_interactive(what: str) -> None:
 
 # --------------------------------------------------------------------- output
 def banner(title: str, subtitle: str = "") -> None:
+    if _QUIET:
+        return
     line = "=" * max(len(title), 56)
     print(f"\n{line}\n{title}")
     if subtitle:
@@ -45,22 +70,35 @@ def banner(title: str, subtitle: str = "") -> None:
 
 
 def heading(text: str) -> None:
+    if _QUIET:
+        return
     print(f"\n{text}\n{'-' * len(text)}")
 
 
 def info(text: str) -> None:
+    if _QUIET:
+        return
     print(text)
 
 
 def note(text: str) -> None:
+    if _QUIET:
+        return
     print(f"  . {text}")
 
 
 def ok(text: str) -> None:
+    if _QUIET:
+        return
     print(f"  [ok] {text}")
 
 
 def warn(text: str) -> None:
+    # A warning is not decoration, so quiet mode moves it to stderr rather
+    # than dropping it: stdout stays a clean JSON document either way.
+    if _QUIET:
+        print(f"  [!] {text}", file=sys.stderr)
+        return
     print(f"  [!] {text}")
 
 
@@ -70,6 +108,8 @@ def error(text: str) -> None:
 
 def table(headers: Sequence[str], rows: Iterable[Sequence[object]]) -> None:
     """Print an aligned text table."""
+    if _QUIET:
+        return
     rows = [[("" if c is None else str(c)) for c in row] for row in rows]
     if not rows:
         print("  (nothing yet)")
@@ -88,6 +128,8 @@ def table(headers: Sequence[str], rows: Iterable[Sequence[object]]) -> None:
 
 
 def progress(index: int, total: int, label: str) -> None:
+    if _QUIET:
+        return
     print(f"  [{index}/{total}] {label}", flush=True)
 
 

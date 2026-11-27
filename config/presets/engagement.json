@@ -1,0 +1,118 @@
+{
+  "name": "engagement",
+  "title": "Engagement / ring ceremony",
+  "description": "Shorter and lighter than a wedding: arrival, the ring, speeches, cake, dancing.",
+  "target_minutes": 4.0,
+  "segments": [
+    {
+      "id": "arrival",
+      "title": "Arrival",
+      "mood": "happy",
+      "keywords": [
+        "arrival",
+        "entry",
+        "entrance"
+      ],
+      "required": false
+    },
+    {
+      "id": "ring_exchange",
+      "title": "Ring exchange",
+      "mood": "romantic",
+      "keywords": [
+        "ring",
+        "engagement",
+        "proposal"
+      ],
+      "required": true
+    },
+    {
+      "id": "couple_portraits",
+      "title": "Couple portraits",
+      "mood": "romantic",
+      "keywords": [
+        "couple",
+        "portrait"
+      ],
+      "required": false
+    },
+    {
+      "id": "family",
+      "title": "Family",
+      "mood": "happy",
+      "keywords": [
+        "family",
+        "parents",
+        "group"
+      ],
+      "required": false
+    },
+    {
+      "id": "speeches",
+      "title": "Speeches",
+      "mood": "emotional",
+      "keywords": [
+        "speech",
+        "toast",
+        "words"
+      ],
+      "required": false
+    },
+    {
+      "id": "cake_and_toast",
+      "title": "Cake and toast",
+      "mood": "happy",
+      "keywords": [
+        "cake",
+        "toast",
+        "cheers"
+      ],
+      "required": false
+    },
+    {
+      "id": "dance",
+      "title": "Dance",
+      "mood": "fun",
+      "keywords": [
+        "dance",
+        "music",
+        "floor"
+      ],
+      "required": false
+    },
+    {
+      "id": "candid",
+      "title": "Candid",
+      "mood": "calm",
+      "keywords": [
+        "candid",
+        "decor",
+        "detail"
+      ],
+      "required": false
+    }
+  ],
+  "emotion_arc": [
+    "calm",
+    "happy",
+    "romantic",
+    "fun",
+    "emotional"
+  ],
+  "pacing": {
+    "min_clip_seconds": 2.0,
+    "max_clip_seconds": 12.0,
+    "snap": "bar"
+  },
+  "audio": {
+    "mode": "mix",
+    "music_volume": 0.9,
+    "original_volume": 0.3
+  },
+  "autodetect": {
+    "scene_threshold": 0.3,
+    "min_gap_seconds": 4.0,
+    "prefer_loud": true
+  },
+  "schema": 1
+}

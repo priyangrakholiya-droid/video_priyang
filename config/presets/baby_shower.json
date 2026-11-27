@@ -1,0 +1,133 @@
+{
+  "name": "baby_shower",
+  "title": "Baby shower",
+  "description": "Gentle pacing: decor, the reveal, gifts, games, the blessings and the guests.",
+  "target_minutes": 4.0,
+  "segments": [
+    {
+      "id": "decor",
+      "title": "Decor and details",
+      "mood": "calm",
+      "keywords": [
+        "decor",
+        "balloon",
+        "detail",
+        "table"
+      ],
+      "required": false
+    },
+    {
+      "id": "arrivals",
+      "title": "Arrivals",
+      "mood": "happy",
+      "keywords": [
+        "arrival",
+        "guests",
+        "welcome"
+      ],
+      "required": false
+    },
+    {
+      "id": "mother_to_be",
+      "title": "Mother to be",
+      "mood": "romantic",
+      "keywords": [
+        "mother",
+        "mom",
+        "bump",
+        "parents"
+      ],
+      "required": true
+    },
+    {
+      "id": "reveal",
+      "title": "Reveal",
+      "mood": "happy",
+      "keywords": [
+        "reveal",
+        "gender",
+        "surprise"
+      ],
+      "required": false
+    },
+    {
+      "id": "blessings",
+      "title": "Blessings",
+      "mood": "emotional",
+      "keywords": [
+        "blessing",
+        "prayer",
+        "wishes",
+        "godh"
+      ],
+      "required": false
+    },
+    {
+      "id": "games",
+      "title": "Games",
+      "mood": "fun",
+      "keywords": [
+        "game",
+        "activity",
+        "guess"
+      ],
+      "required": false
+    },
+    {
+      "id": "gifts",
+      "title": "Gifts",
+      "mood": "happy",
+      "keywords": [
+        "gift",
+        "present",
+        "unwrap"
+      ],
+      "required": false
+    },
+    {
+      "id": "cake",
+      "title": "Cake",
+      "mood": "happy",
+      "keywords": [
+        "cake",
+        "cut",
+        "dessert"
+      ],
+      "required": false
+    },
+    {
+      "id": "guests",
+      "title": "Guests and candids",
+      "mood": "happy",
+      "keywords": [
+        "guest",
+        "candid",
+        "family"
+      ],
+      "required": false
+    }
+  ],
+  "emotion_arc": [
+    "calm",
+    "happy",
+    "fun",
+    "romantic",
+    "emotional"
+  ],
+  "pacing": {
+    "min_clip_seconds": 2.0,
+    "max_clip_seconds": 10.0,
+    "snap": "bar"
+  },
+  "audio": {
+    "mode": "mix",
+    "music_volume": 0.85,
+    "original_volume": 0.3
+  },
+  "autodetect": {
+    "scene_threshold": 0.3,
+    "min_gap_seconds": 4.0,
+    "prefer_loud": false
+  },
+  "schema": 1
+}
