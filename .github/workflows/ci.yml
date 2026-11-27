@@ -52,7 +52,21 @@ jobs:
         if: runner.os == 'Linux'
         env:
           PYTHONUNBUFFERED: "1"
-        run: bash scripts/run_sample_pipeline.sh
+        run: |
+          set +e
+          bash scripts/run_sample_pipeline.sh 2>&1 | tee smoke.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            # Put the tail of the log into a workflow annotation. Annotations
+            # are readable through the public API, so a failure here can be
+            # diagnosed without anyone downloading the raw log.
+            msg=$(tail -n 60 smoke.log \
+              | sed -e 's/%/%25/g' -e 's/\r//g' \
+              | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+            echo "::error title=smoke test failed (exit ${status})::${msg}"
+            exit "$status"
+          fi
 
       # So a failure can be diagnosed from the artifact alone, without
       # anyone having to read the raw job log.
@@ -62,6 +76,7 @@ jobs:
         with:
           name: smoke-${{ matrix.os }}-py${{ matrix.python }}
           path: |
+            smoke.log
             sample/result.json
             sample/plan.txt
             projects/sample-run/project.json
