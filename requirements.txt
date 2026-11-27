@@ -1,0 +1,9 @@
+# The pipeline itself needs NOTHING from pip - standard library plus ffmpeg.
+#
+# Optional, only for the real facial-expression backend of step 4
+# (python -m video_editor emotions --backend face):
+#
+#   pip install fer
+#
+# `fer` pulls in opencv, tensorflow and numpy, which is a large install. The
+# default heuristic backend needs none of it.

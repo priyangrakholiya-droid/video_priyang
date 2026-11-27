@@ -1,0 +1,42 @@
+# project output: generated footage, never commit it
+projects/
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.m4v
+*.webm
+*.mp3
+*.wav
+*.m4a
+*.aac
+*.flac
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+.eggs/
+
+# tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# editors / os
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# generated sample footage from tools/make_sample_footage.sh
+sample/
